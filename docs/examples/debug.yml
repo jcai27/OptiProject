@@ -1,0 +1,29 @@
+experiment_name: debug
+dataset:
+  name: microgrid_lp
+  root_path: ./data/microgrid_lp
+  file_extension: .lp
+  train_instances:
+    - day_001
+    - day_002
+    - day_003
+  validation_instances:
+    - day_004
+  test_instances:
+    - day_005
+solver:
+  backend: dummy
+  time_limit_seconds: 30
+models:
+  node_model: logistic_regression
+  cut_model: elastic_net
+guardrails:
+  enable_guardrails: true
+  no_progress_node_limit: 100
+  no_progress_time_seconds: 30
+  cut_budget: 20
+  node_weight: 0.1
+instrumentation:
+  enable_node_logging: true
+  enable_cut_logging: true
+output_directory: ./outputs
