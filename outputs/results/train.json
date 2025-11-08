@@ -1,56 +1,56 @@
 [
   {
     "instance": "day_001",
-    "status": "optimal",
-    "objective": 26376.50048578261,
-    "solve_time": 0.16070089999993797,
+    "status": "infeasible",
+    "objective": null,
+    "solve_time": 19.090287399998488,
     "nodes_processed": 1,
-    "cuts_added": 19,
+    "cuts_added": 0,
     "metadata": {}
   },
   {
     "instance": "day_002",
-    "status": "optimal",
-    "objective": 20642.26743878261,
-    "solve_time": 0.36337570000614505,
+    "status": "infeasible",
+    "objective": null,
+    "solve_time": 20.846239999998943,
     "nodes_processed": 1,
-    "cuts_added": 23,
+    "cuts_added": 0,
     "metadata": {}
   },
   {
     "instance": "day_003",
-    "status": "optimal",
-    "objective": 21160.855619782607,
-    "solve_time": 0.23930660000769421,
+    "status": "infeasible",
+    "objective": null,
+    "solve_time": 20.18512809999811,
     "nodes_processed": 1,
-    "cuts_added": 23,
+    "cuts_added": 0,
     "metadata": {}
   },
   {
     "instance": "day_004",
-    "status": "optimal",
-    "objective": 25104.018472782605,
-    "solve_time": 0.18280219999724068,
+    "status": "infeasible",
+    "objective": null,
+    "solve_time": 20.993917200001306,
     "nodes_processed": 1,
-    "cuts_added": 11,
+    "cuts_added": 0,
     "metadata": {}
   },
   {
     "instance": "day_005",
-    "status": "optimal",
-    "objective": 18113.92214634783,
-    "solve_time": 0.05532590000075288,
+    "status": "infeasible",
+    "objective": null,
+    "solve_time": 18.027294999999867,
     "nodes_processed": 1,
-    "cuts_added": 1,
+    "cuts_added": 0,
     "metadata": {}
   },
   {
     "instance": "day_006",
-    "status": "optimal",
-    "objective": 21311.01275378261,
-    "solve_time": 0.08848989999387413,
+    "status": "infeasible",
+    "objective": null,
+    "solve_time": 23.45355319999726,
     "nodes_processed": 1,
-    "cuts_added": 13,
+    "cuts_added": 0,
     "metadata": {}
   }
 ]

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import time
+import math
 from dataclasses import dataclass
+from typing import Optional
 
 from .logger import CutLogRecord, NodeLogRecord, TelemetryLogger
+from .strong_branching import StrongBranchingLabeller, StrongBranchingOptions
 
 HAS_SCIP = False
 
@@ -25,7 +28,13 @@ def _event_type_name(event_type) -> str:
         return str(event_type)
 
     mapping = []
-    for key in ("NODEFOCUSED", "NODEFEASIBLE", "NODEINFEASIBLE"):
+    for key in (
+        "NODEFOCUSED",
+        "NODEFEASIBLE",
+        "NODEINFEASIBLE",
+        "ROWADDEDSEPA",
+        "ROWADDEDLP",
+    ):
         const = globals().get(f"SCIP_EVENTTYPE_{key}")
         if const is None:
             continue
@@ -36,6 +45,16 @@ def _event_type_name(event_type) -> str:
         if mask & const_mask:
             mapping.append(key)
     return "|".join(mapping) if mapping else str(mask)
+
+
+def _safe_float(value, default: float = 0.0) -> float:
+    try:
+        numeric = float(value)
+        if math.isnan(numeric) or math.isinf(numeric):
+            return default
+        return numeric
+    except Exception:
+        return default
 
 
 def _enum_name(value) -> str:
@@ -93,6 +112,8 @@ def _load_scip_classes():
     SCIP_EVENTTYPE_NODEFOCUSED = _event_value("NODEFOCUSED")
     SCIP_EVENTTYPE_NODEFEASIBLE = _event_value("NODEFEASIBLE")
     SCIP_EVENTTYPE_NODEINFEASIBLE = _event_value("NODEINFEASIBLE")
+    SCIP_EVENTTYPE_ROWADDEDSEPA = _event_value("ROWADDEDSEPA")
+    SCIP_EVENTTYPE_ROWADDEDLP = _event_value("ROWADDEDLP")
 
     SCIP_RESULT = getattr(pyscipopt, "SCIP_RESULT", None)
 
@@ -102,6 +123,8 @@ def _load_scip_classes():
         SCIP_EVENTTYPE_NODEFOCUSED,
         SCIP_EVENTTYPE_NODEFEASIBLE,
         SCIP_EVENTTYPE_NODEINFEASIBLE,
+        SCIP_EVENTTYPE_ROWADDEDSEPA,
+        SCIP_EVENTTYPE_ROWADDEDLP,
         SCIP_RESULT,
     ):
         return None
@@ -112,6 +135,8 @@ def _load_scip_classes():
         "SCIP_EVENTTYPE_NODEFEASIBLE": SCIP_EVENTTYPE_NODEFEASIBLE,
         "SCIP_EVENTTYPE_NODEFOCUSED": SCIP_EVENTTYPE_NODEFOCUSED,
         "SCIP_EVENTTYPE_NODEINFEASIBLE": SCIP_EVENTTYPE_NODEINFEASIBLE,
+        "SCIP_EVENTTYPE_ROWADDEDSEPA": SCIP_EVENTTYPE_ROWADDEDSEPA,
+        "SCIP_EVENTTYPE_ROWADDEDLP": SCIP_EVENTTYPE_ROWADDEDLP,
         "SCIP_RESULT": SCIP_RESULT,
     }
 
@@ -135,6 +160,7 @@ class CallbackOptions:
 
     enable_node_logging: bool = True
     enable_cut_logging: bool = True
+    strong_branching: Optional[StrongBranchingOptions] = None
 
 
 def register_logging_callbacks(model, telemetry: TelemetryLogger, options: CallbackOptions) -> None:
@@ -156,29 +182,26 @@ def register_logging_callbacks(model, telemetry: TelemetryLogger, options: Callb
         HAS_SCIP = True
 
     if options.enable_node_logging:
-        nodes = NodeEventHandler(telemetry)
+        nodes = NodeEventHandler(telemetry, options)
         model.includeEventhdlr(nodes, "log_nodes", "Log node focus and status events.")
 
     if options.enable_cut_logging:
-        separator = CutLoggingSeparator(telemetry)
-        model.includeSepa(
-            separator,
-            "log_cuts",
-            "Log separator invocations without modifying the LP.",
-            priority=0,
-            freq=1,
-            maxbounddist=1.0,
-            usessubscip=False,
-            delay=True,
-        )
+        cuts = CutEventHandler(telemetry)
+        model.includeEventhdlr(cuts, "log_cuts", "Log cut additions.")
 
 
 class NodeEventHandler(Eventhdlr):  # type: ignore[misc]
     """Records node focus events emitted by SCIP."""
 
-    def __init__(self, telemetry: TelemetryLogger) -> None:
+    def __init__(self, telemetry: TelemetryLogger, options: CallbackOptions) -> None:
         super().__init__()
         self.telemetry = telemetry
+        sb_options = getattr(options, "strong_branching", None)
+        if sb_options is not None and not sb_options.enabled:
+            sb_options = None
+        self._sb_options = sb_options
+        self._sb_labeller: Optional[StrongBranchingLabeller] = None
+        self._sb_warned = False
 
     def eventinit(self) -> dict:
         self.model.catchEvent(SCIP_EVENTTYPE_NODEFOCUSED, self)
@@ -195,6 +218,21 @@ class NodeEventHandler(Eventhdlr):  # type: ignore[misc]
     def eventexec(self, event) -> dict:  # pragma: no cover - exercised via solver runtime
         try:
             node = event.getNode()
+            sb_score = None
+            sb_label = None
+            if self._sb_options is not None and self._is_focus_event(event):
+                if self._sb_labeller is None:
+                    self._sb_labeller = StrongBranchingLabeller(self.model, self._sb_options)
+                    if not self._sb_labeller.supported:
+                        if not self._sb_warned:
+                            self.telemetry.console.log(
+                                "[yellow]Strong branching labels requested but unsupported by this PySCIPOpt build; skipping label generation.[/yellow]"
+                            )
+                            self._sb_warned = True
+                        self._sb_options = None
+                        self._sb_labeller = None
+                if self._sb_labeller is not None and self._sb_labeller.supported:
+                    sb_score, sb_label = self._sb_labeller.evaluate_focus_node()
             estimate = self._safe_call(getattr(node, "getEstimate", None), None)
             node_type = self._safe_call(lambda: _enum_name(node.getType()), None)
             solving_time = self._safe_model_call("getSolvingTime", None)
@@ -218,6 +256,8 @@ class NodeEventHandler(Eventhdlr):  # type: ignore[misc]
                 nodes_in_queue=None if nodes_remaining is None else int(nodes_remaining),
                 cuts_applied=None if cuts_applied is None else int(cuts_applied),
                 node_type=node_type,
+                strong_branch_score=sb_score,
+                strong_branch_label=sb_label if sb_label is None else int(sb_label),
             )
             self.telemetry.record_node(record)
         except Exception as exc:  # pylint:disable=broad-except
@@ -250,9 +290,18 @@ class NodeEventHandler(Eventhdlr):  # type: ignore[misc]
         func = getattr(self.model, name, None)
         return self._safe_call(func, default)
 
+    @staticmethod
+    def _is_focus_event(event) -> bool:
+        try:
+            event_mask = _to_int(event.getType())
+            focus_mask = _to_int(SCIP_EVENTTYPE_NODEFOCUSED)
+        except Exception:
+            return False
+        return bool(event_mask & focus_mask)
 
-class CutLoggingSeparator(Sepa):  # type: ignore[misc]
-    """Separator that only logs its invocation."""
+
+class CutEventHandler(Eventhdlr):  # type: ignore[misc]
+    """Records real separator cuts by listening to row events."""
 
     def __init__(self, telemetry: TelemetryLogger) -> None:
         super().__init__()
@@ -260,60 +309,95 @@ class CutLoggingSeparator(Sepa):  # type: ignore[misc]
         self._cut_counter = 0
         self._round_counter = 0
 
-    def sepaexeclp(self) -> dict:  # pragma: no cover - exercised via solver runtime
-        self._log_invocation("sepaexeclp")
-        return {"result": _scip_result_didnotrun()}
+    def eventinit(self) -> dict:
+        self.model.catchEvent(SCIP_EVENTTYPE_ROWADDEDSEPA, self)
+        self.model.catchEvent(SCIP_EVENTTYPE_ROWADDEDLP, self)
+        return {"result": _scip_result_ok()}
 
-    def sepaexecsol(self) -> dict:  # pragma: no cover - exercised via solver runtime
-        self._log_invocation("sepaexecsol")
-        return {"result": _scip_result_didnotrun()}
+    def eventexit(self) -> dict:
+        self.model.dropEvent(SCIP_EVENTTYPE_ROWADDEDSEPA, self)
+        self.model.dropEvent(SCIP_EVENTTYPE_ROWADDEDLP, self)
+        return {"result": _scip_result_ok()}
 
-    def _log_invocation(self, context: str) -> None:
+    def eventexec(self, event) -> dict:  # pragma: no cover - exercised at runtime
         self._cut_counter += 1
-        if context == "sepaexeclp":
+        event_type = _event_type_name(event.getType())
+        if "ROWADDEDLP" in event_type:
             self._round_counter += 1
-        node = self._safe_call(self.model.getCurrentNode, None)
-        node_id = None
-        if node is not None:
-            node_id = self._safe_call(node.getNumber, None)
-        solving_time = self._safe_call(self.model.getSolvingTime, None)
-        lp_iterations = self._safe_call(self.model.getNLPIterations, None)
-        cuts_total = self._safe_call(self.model.getNCutsApplied, None)
-        lp_rows = self._safe_call(self._get_lp_rows, None)
-        lp_cols = self._safe_call(self._get_lp_cols, None)
+        row = self._safe_call(event.getRow, None)
+        if row is None:
+            return {"result": _scip_result_ok()}
+        node = self._safe_call(event.getNode, None)
+        node_id = None if node is None else self._safe_call(node.getNumber, None)
+        stats = self._gather_stats()
+        violation = self._row_violation(row, stats)
+        efficacy = self._safe_cut_efficacy(row)
+        dual_signal = self._safe_call(row.getDualsol, 0.0)
+        sparsity = self._row_sparsity(row, stats)
         record = CutLogRecord(
             cut_id=self._cut_counter,
-            separator=context,
-            violation=0.0,
-            efficacy=0.0,
-            sparsity=0.0,
+            separator=event_type,
+            violation=violation,
+            efficacy=efficacy,
+            sparsity=sparsity,
             application_time=time.time(),
-            dual_improvement=0.0,
+            dual_improvement=_safe_float(dual_signal, efficacy),
             node_id=None if node_id is None else int(node_id),
-            solving_time=solving_time,
-            lp_iterations=None if lp_iterations is None else int(lp_iterations),
-            cuts_applied_total=None if cuts_total is None else int(cuts_total),
-            lp_rows=None if lp_rows is None else int(lp_rows),
-            lp_cols=None if lp_cols is None else int(lp_cols),
-            round_index=self._round_counter if context == "sepaexeclp" else None,
+            solving_time=stats["solving_time"],
+            lp_iterations=None if stats["lp_iterations"] is None else int(stats["lp_iterations"]),
+            cuts_applied_total=None
+            if stats["cuts_applied_total"] is None
+            else int(stats["cuts_applied_total"]),
+            lp_rows=None if stats["lp_rows"] is None else int(stats["lp_rows"]),
+            lp_cols=None if stats["lp_cols"] is None else int(stats["lp_cols"]),
+            round_index=self._round_counter,
         )
         self.telemetry.record_cut(record)
+        return {"result": _scip_result_ok()}
+
+    def _gather_stats(self):
+        return {
+            "solving_time": self._safe_model_call("getSolvingTime"),
+            "lp_iterations": self._safe_model_call("getNLPIterations"),
+            "cuts_applied_total": self._safe_model_call("getNCutsApplied"),
+            "lp_rows": self._safe_model_call("getNLPRows"),
+            "lp_cols": self._safe_model_call("getNLPCols"),
+        }
+
+    def _row_violation(self, row, stats) -> float:
+        try:
+            activity = float(self.model.getRowLPActivity(row))
+        except Exception:
+            activity = 0.0
+        lhs = self._safe_call(row.getLhs, -float("inf"))
+        rhs = self._safe_call(row.getRhs, float("inf"))
+        lhs_violation = max(0.0, lhs - activity)
+        rhs_violation = max(0.0, activity - rhs)
+        return float(max(lhs_violation, rhs_violation))
+
+    def _safe_cut_efficacy(self, row) -> float:
+        try:
+            return float(self.model.getCutEfficacy(row))
+        except Exception:
+            return 0.0
+
+    def _row_sparsity(self, row, stats) -> float:
+        try:
+            nnz = float(row.getNNonz())
+        except Exception:
+            nnz = 0.0
+        cols = stats.get("lp_cols") or 1
+        return float(nnz) / float(max(1, cols))
 
     @staticmethod
     def _safe_call(func, default=None):
+        if func is None:
+            return default
         try:
             return func()
         except Exception:
             return default
 
-    def _get_lp_rows(self):
-        try:
-            return self.model.getNLPRows()
-        except Exception:
-            return None
-
-    def _get_lp_cols(self):
-        try:
-            return self.model.getNLPCols()
-        except Exception:
-            return None
+    def _safe_model_call(self, name: str):
+        func = getattr(self.model, name, None)
+        return self._safe_call(func, None)

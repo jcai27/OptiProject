@@ -17,6 +17,7 @@ dataset:
 solver:
   backend: dummy          # switch to pyscipopt once installed
   time_limit_seconds: 120
+  use_learned_policies: false
   models:
   node_model: none
   cut_model: none
@@ -25,6 +26,11 @@ guardrails:
 instrumentation:
   enable_node_logging: true
   enable_cut_logging: true
+  strong_branching:
+    enable_labels: true
+    candidate_limit: 8
+    iteration_limit: 50
+    label_top_fraction: 0.25
 output_directory: ./outputs
 ```
 
@@ -48,14 +54,15 @@ python3 scripts/train_models.py --config docs/examples/debug.yml
 
 This reads telemetry logs, trains the node and cut models when labels/targets are available, and saves bundles to `outputs/models/`.
 Install the learning dependencies first with `pip install numpy pandas scikit-learn` (or `pip install -e .`).
+Whenever `outputs/models/node_model.pkl` or `outputs/models/cut_model.pkl` exist, PySCIPOpt runs automatically reload them: the node selector reorders open nodes by the learned probabilities (blended with best bound using `guardrails.node_weight`), and the cut selector ranks candidate cuts using the regression predictions. If the bundles are missing, SCIP falls back to the default best-bound and internal cut selection strategies.
 
-## 4. End-to-end bootstrap
+## 4. End-to-end pipeline
 
 ```bash
-python3 scripts/bootstrap_workflow.py --config docs/examples/debug.yml --split train
+python3 scripts/run_pipeline.py --config docs/examples/debug.yml --train-split train --eval-split validation
 ```
 
-Runs the chosen split and immediately trains models.
+This command solves the training split without ML policies (to log strong-branching labels), trains the node/cut models, then immediately solves the evaluation split with `solver.use_learned_policies` enabled so the learned selectors steer branching and cut ordering. For a simpler collect+train loop without the evaluation pass, you can still run `python3 scripts/bootstrap_workflow.py --config docs/examples/debug.yml --split train`.
 
 ## 5. Generate synthetic microgrid instances
 
@@ -80,7 +87,7 @@ If your SCIP build supports additional parameters (heuristic emphasis, random br
 
 ## 6. Extending the scaffold
 
-- **Instrumentation** — with PySCIPOpt installed, the framework now attaches a node-event handler and a no-op separator that record telemetry without altering the search. Toggle them from the YAML `instrumentation` block or customize behaviour via `learning_branch_cut.instrumentation.scip_callbacks.CallbackOptions`.
+- **Instrumentation** — with PySCIPOpt installed, the framework attaches node and row event handlers that log telemetry without altering the search. Toggle them from the YAML `instrumentation` block or customize behaviour via `learning_branch_cut.instrumentation.scip_callbacks.CallbackOptions`. The `strong_branching` sub-block can be enabled to compute approximate strong-branching scores/labels directly in the telemetry logs, which downstream training uses instead of heuristic node outcomes.
 - **Solver integration** — extend `learning_branch_cut.instrumentation.scip_callbacks` or replace the included callbacks to stream richer node and cut features into the `TelemetryLogger`.
 - **Dataset tooling** — populate `InstanceDataset` with real microgrid traces; add samplers for generating synthetic scenarios.
 - **Learning tasks** — connect `ml.models` to logged data, train models, and feed predictions back through solver guardrails.

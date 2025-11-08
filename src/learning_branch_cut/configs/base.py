@@ -35,6 +35,7 @@ class SolverConfig:
     settings: Dict[str, Any] = field(default_factory=dict)
     time_limit_seconds: Optional[int] = None
     log_directory: Optional[Path] = None
+    use_learned_policies: bool = False
 
     def __post_init__(self) -> None:
         self.log_directory = _expand_path(self.log_directory)
@@ -58,9 +59,22 @@ class GuardrailConfig:
 
 
 @dataclass
+class StrongBranchingConfig:
+    """Controls strong-branching based labeling."""
+
+    enable_labels: bool = False
+    candidate_limit: int = 8
+    iteration_limit: int = 50
+    label_top_fraction: float = 0.25
+    score_history: int = 128
+    min_positive_score: float = 1e-6
+
+
+@dataclass
 class InstrumentationConfig:
     enable_node_logging: bool = True
     enable_cut_logging: bool = True
+    strong_branching: StrongBranchingConfig = field(default_factory=StrongBranchingConfig)
 
 
 @dataclass
@@ -78,13 +92,20 @@ class ExperimentConfig:
 
     @classmethod
     def from_dict(cls, raw: Dict[str, Any]) -> "ExperimentConfig":
+        instrumentation_raw = raw.get("instrumentation", {}) or {}
+        strong_branching_raw = instrumentation_raw.get("strong_branching", {}) or {}
+        instrumentation = InstrumentationConfig(
+            enable_node_logging=instrumentation_raw.get("enable_node_logging", True),
+            enable_cut_logging=instrumentation_raw.get("enable_cut_logging", True),
+            strong_branching=StrongBranchingConfig(**strong_branching_raw),
+        )
         return cls(
             experiment_name=raw.get("experiment_name", "debug"),
             dataset=DatasetConfig(**raw.get("dataset", {})),
             solver=SolverConfig(**raw.get("solver", {})),
             models=ModelConfig(**raw.get("models", {})),
             guardrails=GuardrailConfig(**raw.get("guardrails", {})),
-            instrumentation=InstrumentationConfig(**raw.get("instrumentation", {})),
+            instrumentation=instrumentation,
             output_directory=raw.get("output_directory", "./outputs"),
         )
 

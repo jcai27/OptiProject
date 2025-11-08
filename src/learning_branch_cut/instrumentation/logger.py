@@ -25,6 +25,8 @@ class NodeLogRecord:
     nodes_in_queue: Optional[int] = None
     cuts_applied: Optional[int] = None
     node_type: Optional[str] = None
+    strong_branch_score: Optional[float] = None
+    strong_branch_label: Optional[int] = None
 
 
 @dataclass
@@ -71,6 +73,7 @@ class TelemetryLogger:
             "node_id",
             "depth",
             "gap",
+            "sb",
             "frac_vars",
             "lp_iters",
             "queue",
@@ -82,6 +85,7 @@ class TelemetryLogger:
                 str(record.node_id),
                 str(record.depth),
                 f"{record.gap:.4f}",
+                "-" if record.strong_branch_label is None else str(record.strong_branch_label),
                 str(record.fractional_variables),
                 "-" if record.lp_iterations is None else str(record.lp_iterations),
                 "-" if record.nodes_in_queue is None else str(record.nodes_in_queue),

@@ -14,6 +14,7 @@ dataset:
 solver:
   backend: dummy
   time_limit_seconds: 30
+  use_learned_policies: false
 models:
   node_model: logistic_regression
   cut_model: elastic_net
@@ -26,4 +27,9 @@ guardrails:
 instrumentation:
   enable_node_logging: true
   enable_cut_logging: true
+  strong_branching:
+    enable_labels: true
+    candidate_limit: 4
+    iteration_limit: 25
+    label_top_fraction: 0.25
 output_directory: ./outputs

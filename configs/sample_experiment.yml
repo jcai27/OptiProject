@@ -1,8 +1,8 @@
 experiment_name: microgrid_debug
 
 dataset:
-  name: microgrid_small
-  root_path: ./data/microgrid_lp
+  name: microgrid_medium
+  root_path: ./data/microgrid_lp_medium
   file_extension: .lp
   train_instances:
     - day_001
@@ -11,19 +11,28 @@ dataset:
     - day_004
     - day_005
     - day_006
-  validation_instances:
     - day_007
     - day_008
-  test_instances:
     - day_009
     - day_010
+    - day_011
+    - day_012
+  validation_instances:
+    - day_013
+    - day_014
+    - day_015
+  test_instances:
+    - day_016
+    - day_017
+    - day_018
 
 solver:
   backend: pyscipopt
-  time_limit_seconds: 120
+  time_limit_seconds: 300
+  use_learned_policies: false
   settings:
-    limits/time: 120
-    limits/nodes: 50000
+    limits/time: 300
+    limits/nodes: 200000
     presolving/maxrounds: 0
     presolving/maxrestarts: 0
     separating/maxrounds: 0
@@ -45,5 +54,10 @@ guardrails:
 instrumentation:
   enable_node_logging: true
   enable_cut_logging: true
+  strong_branching:
+    enable_labels: true
+    candidate_limit: 8
+    iteration_limit: 50
+    label_top_fraction: 0.25
 
 output_directory: ./outputs

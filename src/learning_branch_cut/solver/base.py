@@ -2,11 +2,20 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 from ..configs.base import ExperimentConfig, InstrumentationConfig, SolverConfig
 from ..instrumentation.logger import CutLogRecord, NodeLogRecord, TelemetryLogger
 from ..instrumentation.scip_callbacks import CallbackOptions, register_logging_callbacks
+from ..ml.persistence import load_bundle
+from .policies import (
+    MLCutSelector,
+    MLNodeSelector,
+    build_cut_policy,
+    build_node_policy,
+)
+from ..instrumentation.strong_branching import StrongBranchingOptions
 
 
 @dataclass
@@ -88,13 +97,8 @@ class DummySolverBackend(SolverBackend):
 class PySCIPOptBackend(SolverBackend):
     """Wrapper around PySCIPOpt with instrumentation hooks."""
 
-    def __init__(
-        self,
-        config: SolverConfig,
-        instrumentation: InstrumentationConfig,
-        telemetry: TelemetryLogger,
-    ) -> None:
-        super().__init__(config, telemetry)
+    def __init__(self, experiment: ExperimentConfig, telemetry: TelemetryLogger) -> None:
+        super().__init__(experiment.solver, telemetry)
         try:
             import pyscipopt
         except ImportError as exc:  # pragma: no cover - optional dependency
@@ -102,10 +106,20 @@ class PySCIPOptBackend(SolverBackend):
                 f"PySCIPOpt import failed: {exc}. Install the optional `solver` dependency group."
             ) from exc
         self._pyscipopt = pyscipopt
+        self._experiment = experiment
+        instrumentation = experiment.instrumentation
+        sb_options = StrongBranchingOptions.from_config(instrumentation.strong_branching)
         self._callback_options = CallbackOptions(
             enable_node_logging=instrumentation.enable_node_logging,
             enable_cut_logging=instrumentation.enable_cut_logging,
+            strong_branching=sb_options,
         )
+        self._model_dir = Path(experiment.output_directory) / "models"
+        self._use_learned_policies = bool(experiment.solver.use_learned_policies)
+        self._node_policy = build_node_policy(
+            self._load_node_bundle(), experiment.guardrails.node_weight
+        )
+        self._cut_policy = build_cut_policy(self._load_cut_bundle())
 
     def _create_model(self):
         model = self._pyscipopt.Model()
@@ -123,7 +137,47 @@ class PySCIPOptBackend(SolverBackend):
                     f"[yellow]Failed to set SCIP parameter '{name}': {exc}[/yellow]"
                 )
         register_logging_callbacks(model, self.telemetry, self._callback_options)
+        self._register_policies(model)
         return model
+
+    def _register_policies(self, model) -> None:
+        if not self._use_learned_policies:
+            return
+        if self._node_policy is not None:
+            try:
+                selector = MLNodeSelector(self._node_policy)
+                model.includeNodesel(
+                    selector,
+                    "ml_nodesel",
+                    "Learning-guided node selector",
+                    stdpriority=100000,
+                    memsavepriority=100000,
+                )
+            except Exception as exc:
+                self.telemetry.console.log(
+                    f"[yellow]Failed to register ML node selector: {exc}[/yellow]"
+                )
+        elif self._model_dir.exists():
+            self.telemetry.console.log(
+                "[yellow]No trained node model bundle found; learned node selection disabled.[/yellow]"
+            )
+        if self._cut_policy is not None:
+            try:
+                cutsel = MLCutSelector(self._cut_policy)
+                model.includeCutsel(
+                    cutsel,
+                    "ml_cutsel",
+                    "Learning-guided cut selector",
+                    priority=100000,
+                )
+            except Exception as exc:
+                self.telemetry.console.log(
+                    f"[yellow]Failed to register ML cut selector: {exc}[/yellow]"
+                )
+        elif self._model_dir.exists():
+            self.telemetry.console.log(
+                "[yellow]No trained cut model bundle found; learned cut ordering disabled.[/yellow]"
+            )
 
     def solve(self, instance_path: str) -> SolverResult:
         model = self._create_model()
@@ -200,6 +254,30 @@ class PySCIPOptBackend(SolverBackend):
             cuts_added=cuts,
         )
 
+    def _load_node_bundle(self):
+        path = self._model_dir / "node_model.pkl"
+        if not path.exists():
+            return None
+        try:
+            return load_bundle(path)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.telemetry.console.log(
+                f"[yellow]Failed to load node model bundle: {exc}[/yellow]"
+            )
+            return None
+
+    def _load_cut_bundle(self):
+        path = self._model_dir / "cut_model.pkl"
+        if not path.exists():
+            return None
+        try:
+            return load_bundle(path)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.telemetry.console.log(
+                f"[yellow]Failed to load cut model bundle: {exc}[/yellow]"
+            )
+            return None
+
     def close(self) -> None:
         return None
 
@@ -208,7 +286,7 @@ def build_solver_backend(config: ExperimentConfig, telemetry: TelemetryLogger) -
     backend = config.solver.backend
     if backend == "pyscipopt":
         try:
-            return PySCIPOptBackend(config.solver, config.instrumentation, telemetry)
+            return PySCIPOptBackend(config, telemetry)
         except RuntimeError as exc:
             telemetry.console.log(
                 f"[yellow]PySCIPOpt unavailable ({exc}), falling back to dummy solver backend[/yellow]"
