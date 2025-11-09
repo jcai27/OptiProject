@@ -10,6 +10,8 @@ from ..instrumentation.logger import CutLogRecord, NodeLogRecord, TelemetryLogge
 from ..instrumentation.scip_callbacks import CallbackOptions, register_logging_callbacks
 from ..ml.persistence import load_bundle
 from .policies import (
+    HAS_CUTSEL_CLASS,
+    HAS_NODESEL_CLASS,
     MLCutSelector,
     MLNodeSelector,
     build_cut_policy,
@@ -144,36 +146,46 @@ class PySCIPOptBackend(SolverBackend):
         if not self._use_learned_policies:
             return
         if self._node_policy is not None:
-            try:
-                selector = MLNodeSelector(self._node_policy)
-                model.includeNodesel(
-                    selector,
-                    "ml_nodesel",
-                    "Learning-guided node selector",
-                    stdpriority=100000,
-                    memsavepriority=100000,
-                )
-            except Exception as exc:
+            if not HAS_NODESEL_CLASS:
                 self.telemetry.console.log(
-                    f"[yellow]Failed to register ML node selector: {exc}[/yellow]"
+                    "[yellow]PySCIPOpt build missing Nodesel interface; learned node selection disabled.[/yellow]"
                 )
+            else:
+                try:
+                    selector = MLNodeSelector(self._node_policy)
+                    model.includeNodesel(
+                        selector,
+                        "ml_nodesel",
+                        "Learning-guided node selector",
+                        stdpriority=100000,
+                        memsavepriority=100000,
+                    )
+                except Exception as exc:
+                    self.telemetry.console.log(
+                        f"[yellow]Failed to register ML node selector: {exc}[/yellow]"
+                    )
         elif self._model_dir.exists():
             self.telemetry.console.log(
                 "[yellow]No trained node model bundle found; learned node selection disabled.[/yellow]"
             )
         if self._cut_policy is not None:
-            try:
-                cutsel = MLCutSelector(self._cut_policy)
-                model.includeCutsel(
-                    cutsel,
-                    "ml_cutsel",
-                    "Learning-guided cut selector",
-                    priority=100000,
-                )
-            except Exception as exc:
+            if not HAS_CUTSEL_CLASS:
                 self.telemetry.console.log(
-                    f"[yellow]Failed to register ML cut selector: {exc}[/yellow]"
+                    "[yellow]PySCIPOpt build missing Cutsel interface; learned cut ordering disabled.[/yellow]"
                 )
+            else:
+                try:
+                    cutsel = MLCutSelector(self._cut_policy)
+                    model.includeCutsel(
+                        cutsel,
+                        "ml_cutsel",
+                        "Learning-guided cut selector",
+                        priority=100000,
+                    )
+                except Exception as exc:
+                    self.telemetry.console.log(
+                        f"[yellow]Failed to register ML cut selector: {exc}[/yellow]"
+                    )
         elif self._model_dir.exists():
             self.telemetry.console.log(
                 "[yellow]No trained cut model bundle found; learned cut ordering disabled.[/yellow]"

@@ -36,13 +36,15 @@ class TrainingWorkflow:
             return "no_labels"
         if np.unique(y).size < 2:
             return "insufficient_labels"
-        model = NodePriorityModel()
+        model = NodePriorityModel(self.config.models.node_model)
         try:
             model.fit(X, y, feature_names)
         except RuntimeError as exc:
             message = str(exc)
             if "scikit-learn" in message.lower():
                 return "sklearn_missing"
+            if "xgboost" in message.lower():
+                return "xgboost_missing"
             return f"error:{message}"
         if model.bundle is None:
             return "training_failed"
@@ -56,13 +58,15 @@ class TrainingWorkflow:
         X, y, feature_names = build_cut_dataset(records)
         if y.size == 0:
             return "missing_targets"
-        model = CutSelectionModel()
+        model = CutSelectionModel(self.config.models.cut_model)
         try:
             model.fit(X, y, feature_names)
         except RuntimeError as exc:
             message = str(exc)
             if "scikit-learn" in message.lower():
                 return "sklearn_missing"
+            if "xgboost" in message.lower():
+                return "xgboost_missing"
             return f"error:{message}"
         if model.bundle is None:
             return "training_failed"

@@ -1,0 +1,51 @@
+experiment_name: microgrid_simple
+
+dataset:
+  name: microgrid_simple
+  root_path: ./data/microgrid_lp_simple
+  file_extension: .lp
+  train_instances:
+    - day_001
+    - day_002
+    - day_003
+  validation_instances:
+    - day_004
+  test_instances:
+    - day_005
+    - day_006
+
+solver:
+  backend: pyscipopt
+  time_limit_seconds: 120
+  use_learned_policies: false
+  settings:
+    limits/time: 120
+    limits/nodes: 50000
+    presolving/maxrounds: 0
+    presolving/maxrestarts: 0
+    separating/maxrounds: 0
+    separating/maxroundsroot: 1
+
+models:
+  node_model: logistic_regression
+  cut_model: elastic_net
+  retrain_epochs: 1
+  calibration: isotonic
+
+guardrails:
+  enable_guardrails: true
+  no_progress_node_limit: 250
+  no_progress_time_seconds: 60
+  cut_budget: 50
+  node_weight: 0.15
+
+instrumentation:
+  enable_node_logging: true
+  enable_cut_logging: true
+  strong_branching:
+    enable_labels: true
+    candidate_limit: 8
+    iteration_limit: 50
+    label_top_fraction: 0.25
+
+output_directory: ./outputs

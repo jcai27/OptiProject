@@ -50,17 +50,16 @@ class StrongBranchingLabeller:
         self.model = model
         self.options = options
         self._recent_scores: Deque[float] = deque(maxlen=self.options.score_history)
-        self._branch_cand_func = getattr(model, "getLPBranchCands", None)
-        self._method_names = [
-            name
-            for name in (
-                "getVarStrongbranchScore",
-                "getVarStrongbranch",
-                "getStrongbranchScore",
-            )
-            if callable(getattr(model, name, None))
-        ]
+        self._branch_cand_func = self._resolve_branch_candidate_accessor()
+        self._method_names = self._discover_strong_branch_methods()
         self.supported = bool(self._branch_cand_func) and bool(self._method_names)
+        self.unsupported_reason: Optional[str] = None
+        if not self._branch_cand_func:
+            self.unsupported_reason = "missing branch-candidate accessor (expected `getLPBranchCands`)."
+        elif not self._method_names:
+            self.unsupported_reason = (
+                "missing strong-branching probes (expected PySCIPOpt to expose `getVarStrongbranch*`)."
+            )
 
     def evaluate_focus_node(self) -> tuple[Optional[float], Optional[int]]:
         if not self.options.enabled or not self.supported:
@@ -102,6 +101,47 @@ class StrongBranchingLabeller:
             return list(variables)
         except TypeError:
             return []
+
+    def _resolve_branch_candidate_accessor(self):
+        for name in (
+            "getLPBranchCands",
+            "getBranchCands",
+            "getLPBranchCandidates",
+        ):
+            func = getattr(self.model, name, None)
+            if callable(func):
+                return func
+        for name in dir(self.model):
+            lower = name.lower()
+            if "branch" in lower and "cand" in lower:
+                func = getattr(self.model, name, None)
+                if callable(func):
+                    return func
+        return None
+
+    def _discover_strong_branch_methods(self):
+        preferred = (
+            "getVarStrongbranchScore",
+            "getVarStrongbranchScores",
+            "getVarStrongbranch",
+            "getStrongbranchScore",
+        )
+        discovered = [
+            name
+            for name in preferred
+            if callable(getattr(self.model, name, None))
+        ]
+        if discovered:
+            return discovered
+        fallback = []
+        for name in dir(self.model):
+            attr = getattr(self.model, name, None)
+            if not callable(attr):
+                continue
+            lower = name.lower()
+            if lower.startswith("get") and "strongbranch" in lower:
+                fallback.append(name)
+        return fallback
 
     def _score_variable(self, variable) -> Optional[float]:
         for name in self._method_names:

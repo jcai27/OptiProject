@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 import math
 from dataclasses import dataclass
-from typing import Optional
+from typing import Dict, Optional
 
 from .logger import CutLogRecord, NodeLogRecord, TelemetryLogger
 from .strong_branching import StrongBranchingLabeller, StrongBranchingOptions
@@ -32,6 +32,7 @@ def _event_type_name(event_type) -> str:
         "NODEFOCUSED",
         "NODEFEASIBLE",
         "NODEINFEASIBLE",
+        "NODEBRANCHED",
         "ROWADDEDSEPA",
         "ROWADDEDLP",
     ):
@@ -112,10 +113,21 @@ def _load_scip_classes():
     SCIP_EVENTTYPE_NODEFOCUSED = _event_value("NODEFOCUSED")
     SCIP_EVENTTYPE_NODEFEASIBLE = _event_value("NODEFEASIBLE")
     SCIP_EVENTTYPE_NODEINFEASIBLE = _event_value("NODEINFEASIBLE")
+    SCIP_EVENTTYPE_NODEBRANCHED = _event_value("NODEBRANCHED")
     SCIP_EVENTTYPE_ROWADDEDSEPA = _event_value("ROWADDEDSEPA")
     SCIP_EVENTTYPE_ROWADDEDLP = _event_value("ROWADDEDLP")
 
     SCIP_RESULT = getattr(pyscipopt, "SCIP_RESULT", None)
+    SCIP_LPSOLSTAT = getattr(pyscipopt, "SCIP_LPSOLSTAT", None)
+    SCIP_LPSOLSTAT_OPTIMAL = None
+    if SCIP_LPSOLSTAT is not None:
+        if hasattr(SCIP_LPSOLSTAT, "OPTIMAL"):
+            SCIP_LPSOLSTAT_OPTIMAL = getattr(SCIP_LPSOLSTAT, "OPTIMAL")
+        else:  # pragma: no cover - defensive
+            try:
+                SCIP_LPSOLSTAT_OPTIMAL = SCIP_LPSOLSTAT["OPTIMAL"]
+            except Exception:
+                SCIP_LPSOLSTAT_OPTIMAL = None
 
     if None in (
         Eventhdlr,
@@ -123,6 +135,7 @@ def _load_scip_classes():
         SCIP_EVENTTYPE_NODEFOCUSED,
         SCIP_EVENTTYPE_NODEFEASIBLE,
         SCIP_EVENTTYPE_NODEINFEASIBLE,
+        SCIP_EVENTTYPE_NODEBRANCHED,
         SCIP_EVENTTYPE_ROWADDEDSEPA,
         SCIP_EVENTTYPE_ROWADDEDLP,
         SCIP_RESULT,
@@ -135,9 +148,12 @@ def _load_scip_classes():
         "SCIP_EVENTTYPE_NODEFEASIBLE": SCIP_EVENTTYPE_NODEFEASIBLE,
         "SCIP_EVENTTYPE_NODEFOCUSED": SCIP_EVENTTYPE_NODEFOCUSED,
         "SCIP_EVENTTYPE_NODEINFEASIBLE": SCIP_EVENTTYPE_NODEINFEASIBLE,
+        "SCIP_EVENTTYPE_NODEBRANCHED": SCIP_EVENTTYPE_NODEBRANCHED,
         "SCIP_EVENTTYPE_ROWADDEDSEPA": SCIP_EVENTTYPE_ROWADDEDSEPA,
         "SCIP_EVENTTYPE_ROWADDEDLP": SCIP_EVENTTYPE_ROWADDEDLP,
         "SCIP_RESULT": SCIP_RESULT,
+        "SCIP_LPSOLSTAT": SCIP_LPSOLSTAT,
+        "SCIP_LPSOLSTAT_OPTIMAL": SCIP_LPSOLSTAT_OPTIMAL,
     }
 
 
@@ -181,6 +197,20 @@ def register_logging_callbacks(model, telemetry: TelemetryLogger, options: Callb
         globals().update(classes)
         HAS_SCIP = True
 
+    sb_options = getattr(options, "strong_branching", None)
+    if sb_options is not None and not getattr(sb_options, "enabled", False):
+        sb_options = None
+    if sb_options is not None:
+        probe = StrongBranchingLabeller(model, sb_options)
+        if not probe.supported:
+            reason = probe.unsupported_reason or "requested APIs not available"
+            telemetry.console.log(
+                "[yellow]Strong branching labels requested but disabled: "
+                f"{reason} Rebuild/upgrade PySCIPOpt or turn off "
+                "`instrumentation.strong_branching.enable_labels`.[/yellow]"
+            )
+            options.strong_branching = None
+
     if options.enable_node_logging:
         nodes = NodeEventHandler(telemetry, options)
         model.includeEventhdlr(nodes, "log_nodes", "Log node focus and status events.")
@@ -202,17 +232,20 @@ class NodeEventHandler(Eventhdlr):  # type: ignore[misc]
         self._sb_options = sb_options
         self._sb_labeller: Optional[StrongBranchingLabeller] = None
         self._sb_warned = False
+        self._sb_cache: Dict[int, tuple[Optional[float], Optional[int]]] = {}
 
     def eventinit(self) -> dict:
         self.model.catchEvent(SCIP_EVENTTYPE_NODEFOCUSED, self)
         self.model.catchEvent(SCIP_EVENTTYPE_NODEFEASIBLE, self)
         self.model.catchEvent(SCIP_EVENTTYPE_NODEINFEASIBLE, self)
+        self.model.catchEvent(SCIP_EVENTTYPE_NODEBRANCHED, self)
         return {"result": _scip_result_ok()}
 
     def eventexit(self) -> dict:
         self.model.dropEvent(SCIP_EVENTTYPE_NODEFOCUSED, self)
         self.model.dropEvent(SCIP_EVENTTYPE_NODEFEASIBLE, self)
         self.model.dropEvent(SCIP_EVENTTYPE_NODEINFEASIBLE, self)
+        self.model.dropEvent(SCIP_EVENTTYPE_NODEBRANCHED, self)
         return {"result": _scip_result_ok()}
 
     def eventexec(self, event) -> dict:  # pragma: no cover - exercised via solver runtime
@@ -220,19 +253,9 @@ class NodeEventHandler(Eventhdlr):  # type: ignore[misc]
             node = event.getNode()
             sb_score = None
             sb_label = None
-            if self._sb_options is not None and self._is_focus_event(event):
-                if self._sb_labeller is None:
-                    self._sb_labeller = StrongBranchingLabeller(self.model, self._sb_options)
-                    if not self._sb_labeller.supported:
-                        if not self._sb_warned:
-                            self.telemetry.console.log(
-                                "[yellow]Strong branching labels requested but unsupported by this PySCIPOpt build; skipping label generation.[/yellow]"
-                            )
-                            self._sb_warned = True
-                        self._sb_options = None
-                        self._sb_labeller = None
-                if self._sb_labeller is not None and self._sb_labeller.supported:
-                    sb_score, sb_label = self._sb_labeller.evaluate_focus_node()
+            node_id = node.getNumber()
+            if self._sb_options is not None and node_id is not None:
+                sb_score, sb_label = self._label_node(node_id)
             estimate = self._safe_call(getattr(node, "getEstimate", None), None)
             node_type = self._safe_call(lambda: _enum_name(node.getType()), None)
             solving_time = self._safe_model_call("getSolvingTime", None)
@@ -290,14 +313,59 @@ class NodeEventHandler(Eventhdlr):  # type: ignore[misc]
         func = getattr(self.model, name, None)
         return self._safe_call(func, default)
 
-    @staticmethod
-    def _is_focus_event(event) -> bool:
+    def _label_node(self, node_id: int) -> tuple[Optional[float], Optional[int]]:
+        cached = self._sb_cache.get(node_id)
+        if cached is not None:
+            return cached
+        if not self._lp_solution_ready():
+            return None, None
+        labeller = self._ensure_labeller()
+        if labeller is None:
+            return None, None
+        score, label = labeller.evaluate_focus_node()
+        if score is not None:
+            cached = (score, label)
+            self._sb_cache[node_id] = cached
+            return cached
+        return None, None
+
+    def _ensure_labeller(self) -> Optional[StrongBranchingLabeller]:
+        if self._sb_options is None:
+            return None
+        if self._sb_labeller is None:
+            self._sb_labeller = StrongBranchingLabeller(self.model, self._sb_options)
+            if not self._sb_labeller.supported:
+                if not self._sb_warned:
+                    reason = (
+                        self._sb_labeller.unsupported_reason or "required APIs are missing"
+                    )
+                    self.telemetry.console.log(
+                        "[yellow]Strong branching labels requested but skipped: "
+                        f"{reason} Disable instrumentation.strong_branching.enable_labels "
+                        "or rebuild PySCIPOpt with strong-branch probes enabled.[/yellow]"
+                    )
+                    self._sb_warned = True
+                self._sb_options = None
+                self._sb_labeller = None
+                return None
+        return self._sb_labeller
+
+    def _lp_solution_ready(self) -> bool:
+        solstat = self._safe_call(getattr(self.model, "getLPSolstat", None), None)
+        if solstat is None:
+            return False
         try:
-            event_mask = _to_int(event.getType())
-            focus_mask = _to_int(SCIP_EVENTTYPE_NODEFOCUSED)
+            status = _to_int(solstat)
         except Exception:
             return False
-        return bool(event_mask & focus_mask)
+        optimal = globals().get("SCIP_LPSOLSTAT_OPTIMAL")
+        if optimal is not None:
+            try:
+                return status == _to_int(optimal)
+            except Exception:
+                return False
+        # Fall back to assuming 0 == NOTSOLVED and any other status means LP finished.
+        return status != 0
 
 
 class CutEventHandler(Eventhdlr):  # type: ignore[misc]

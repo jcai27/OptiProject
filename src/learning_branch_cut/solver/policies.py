@@ -13,11 +13,29 @@ from ..ml.features import CUT_FEATURES, NODE_FEATURES
 from ..ml.models import CutModelBundle, NodeModelBundle
 
 try:  # pragma: no cover - optional dependency
-    from pyscipopt import Cutsel, Nodesel, Row, SCIP_RESULT
+    import pyscipopt
 except Exception:  # pragma: no cover - allows import when pyscipopt is missing
     Cutsel = Nodesel = object  # type: ignore[assignment]
     SCIP_RESULT = None  # type: ignore[assignment]
     Row = object  # type: ignore[assignment]
+    HAS_NODESEL_CLASS = False
+    HAS_CUTSEL_CLASS = False
+else:  # pragma: no cover - executed when PySCIPOpt available
+    Cutsel = getattr(pyscipopt, "Cutsel", None)
+    Nodesel = getattr(pyscipopt, "Nodesel", None)
+    Row = getattr(pyscipopt, "Row", None)
+    if Cutsel is None or Nodesel is None or Row is None:
+        scip_module = getattr(pyscipopt, "scip", None)
+        if scip_module is not None:
+            Cutsel = Cutsel or getattr(scip_module, "Cutsel", None)
+            Nodesel = Nodesel or getattr(scip_module, "Nodesel", None)
+            Row = Row or getattr(scip_module, "Row", None)
+    Cutsel = Cutsel or object  # type: ignore[assignment]
+    Nodesel = Nodesel or object  # type: ignore[assignment]
+    Row = Row or object  # type: ignore[assignment]
+    SCIP_RESULT = getattr(pyscipopt, "SCIP_RESULT", None)
+    HAS_NODESEL_CLASS = Nodesel is not object
+    HAS_CUTSEL_CLASS = Cutsel is not object
 
 
 def _safe_float(value, default: float = 0.0) -> float:

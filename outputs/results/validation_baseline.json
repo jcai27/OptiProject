@@ -1,0 +1,20 @@
+[
+  {
+    "instance": "day_003",
+    "status": "optimal",
+    "objective": 33031.81729160666,
+    "solve_time": 21.641421518001152,
+    "nodes_processed": 422,
+    "cuts_added": 65,
+    "metadata": {}
+  },
+  {
+    "instance": "day_004",
+    "status": "optimal",
+    "objective": 17500.78162095652,
+    "solve_time": 1.287749791998067,
+    "nodes_processed": 3,
+    "cuts_added": 53,
+    "metadata": {}
+  }
+]

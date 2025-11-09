@@ -31,7 +31,7 @@ docs/                  # Design notes, runbooks, and references
 
 1. **Define your experiment**
    - Start from `docs/examples/debug.yml` or `configs/sample_experiment.yml` and set the dataset root, solver backend, instrumentation toggles, and guardrail weights.
-   - Strong-branching labels are optional but recommended for training the node model (`instrumentation.strong_branching.enable_labels: true`).
+   - Strong-branching labels are optional but recommended for training the node model (`instrumentation.strong_branching.enable_labels: true`). The flag only takes effect when your PySCIPOpt build exposes the strong-branching helper APIs (`getVarStrongbranch*`); otherwise the run now prints a warning and automatically disables the labels so telemetry stays consistent.
 2. **Prepare data**
    - Point the dataset block at existing MILPs or synthesize new ones with `python scripts/generate_microgrid_instances.py --output-dir data/microgrid_lp --instances 12 --time-steps 24 --generators 4 --evs 4`.
    - (Optional) Drop YAML metadata beside each `.lp` using the same basename to log contextual fields.
@@ -44,6 +44,7 @@ docs/                  # Design notes, runbooks, and references
 5. **Deploy learned policies**
    - Flip `solver.use_learned_policies: true` in your config (or let `scripts/run_pipeline.py` do it for the evaluation split) so PySCIPOpt loads the bundles and blends ML scores with its native selectors.
    - Solve a validation/test split, inspect `outputs/results/<split>.json`, and iterate on feature logging, guardrails, or model hyperparameters as needed.
+   - If your PySCIPOpt build lacks the optional `Nodesel`/`Cutsel` interfaces, the run now prints a yellow warning and automatically falls back to SCIP’s default selectors so experiments still complete.
 
 ## Usage instructions
 
@@ -57,6 +58,22 @@ pip install -e .[solver]                             # optional PySCIPOpt bindin
 ```
 
 Install SCIP + PySCIPOpt separately following the [SCIP docs](https://www.scipopt.org/) if you want full solver functionality; otherwise the dummy backend will keep scripts runnable.
+
+If you are running inside this repo's pre-provisioned environment (e.g., via Codex CLI), PySCIPOpt already lives under `/home/joshu/micromamba/envs/scip`. Either activate it:
+
+```bash
+source /home/joshu/micromamba/etc/profile.d/micromamba.sh
+micromamba activate scip
+python -m pip install -e .[solver]
+```
+
+or invoke that interpreter directly when scripting:
+
+```bash
+/home/joshu/micromamba/envs/scip/bin/python scripts/run_experiment.py --config configs/sample_experiment.yml --split train
+```
+
+Using that absolute path is the simplest way to ensure Codex has access to the same PySCIPOpt build you installed.
 
 ### Running experiments
 
@@ -81,6 +98,36 @@ This step requires the ML dependencies (NumPy, pandas, scikit-learn). Successful
 
 - `outputs/models/node_model.pkl` and/or `cut_model.pkl`
 - `outputs/models/training_status.json` summarizing which models trained and why others skipped.
+
+Common entry points once the environment is set:
+
+```bash
+# Collect telemetry for a split
+/home/joshu/micromamba/envs/scip/bin/python scripts/run_experiment.py \
+  --config configs/sample_experiment.yml --split train
+
+# Train ML models from the latest telemetry
+/home/joshu/micromamba/envs/scip/bin/python scripts/train_models.py \
+  --config configs/sample_experiment.yml
+
+# Evaluate with ML policies
+/home/joshu/micromamba/envs/scip/bin/python scripts/run_experiment.py \
+  --config configs/sample_experiment.yml --split validation
+
+# Or run collect → train → eval in one shot
+/home/joshu/micromamba/envs/scip/bin/python scripts/run_pipeline.py \
+  --config configs/sample_experiment.yml --train-split train --eval-split validation
+```
+
+`models.node_model` / `models.cut_model` control the estimator families:
+
+| Option | Node task | Cut task | Notes |
+| --- | --- | --- | --- |
+| `logistic_regression` / `elastic_net` | ✅ | ✅ | Works with the built-in NumPy fallbacks when scikit-learn is unavailable. |
+| `random_forest` | ✅ | ✅ | Requires scikit-learn ≥1.3. |
+| `xgboost` | ✅ | ✅ | Requires both scikit-learn (for preprocessing) and `xgboost`. |
+
+If a requested backend is missing, training now fails fast with a clear `sklearn_missing` / `xgboost_missing` status so you can install the dependency before retrying.
 
 ### End-to-end pipeline
 

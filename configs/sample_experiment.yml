@@ -29,7 +29,7 @@ dataset:
 solver:
   backend: pyscipopt
   time_limit_seconds: 300
-  use_learned_policies: false
+  use_learned_policies: true
   settings:
     limits/time: 300
     limits/nodes: 200000
