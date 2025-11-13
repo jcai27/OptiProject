@@ -1,20 +1,11 @@
 [
   {
-    "instance": "day_001",
+    "instance": "SCP_500_1000_3",
     "status": "timelimit",
-    "objective": 25193.933140782625,
-    "solve_time": 54.58152696600155,
-    "nodes_processed": 1387,
-    "cuts_added": 66,
-    "metadata": {}
-  },
-  {
-    "instance": "day_002",
-    "status": "timelimit",
-    "objective": 24546.11069978261,
-    "solve_time": 57.225315649997356,
-    "nodes_processed": 1330,
-    "cuts_added": 74,
+    "objective": -528.0,
+    "solve_time": 285.74338245900003,
+    "nodes_processed": 416,
+    "cuts_added": 1,
     "metadata": {}
   }
 ]

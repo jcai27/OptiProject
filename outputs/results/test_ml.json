@@ -1,0 +1,353 @@
+[
+  {
+    "instance": "SCP_500_1000_1",
+    "status": "timelimit",
+    "objective": -562.0,
+    "solve_time": 56.696119489999546,
+    "nodes_processed": 330,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_1000_2",
+    "status": "timelimit",
+    "objective": -576.0,
+    "solve_time": 57.39753533599924,
+    "nodes_processed": 409,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_1000_4",
+    "status": "timelimit",
+    "objective": -572.0,
+    "solve_time": 57.12657271799981,
+    "nodes_processed": 424,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_1000_5",
+    "status": "timelimit",
+    "objective": -556.0,
+    "solve_time": 57.092437241999505,
+    "nodes_processed": 283,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_1000_6",
+    "status": "timelimit",
+    "objective": -551.0,
+    "solve_time": 58.53973881799993,
+    "nodes_processed": 616,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_1000_7",
+    "status": "timelimit",
+    "objective": -531.0,
+    "solve_time": 57.04874966100033,
+    "nodes_processed": 380,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_1000_8",
+    "status": "timelimit",
+    "objective": -574.0,
+    "solve_time": 57.03026769900043,
+    "nodes_processed": 370,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_1000_9",
+    "status": "timelimit",
+    "objective": -560.0,
+    "solve_time": 57.170696301000135,
+    "nodes_processed": 400,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_1000_10",
+    "status": "timelimit",
+    "objective": -566.0,
+    "solve_time": 56.8140669000004,
+    "nodes_processed": 424,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_2000_1",
+    "status": "timelimit",
+    "objective": -704.0,
+    "solve_time": 58.50266984300015,
+    "nodes_processed": 16,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_2000_2",
+    "status": "timelimit",
+    "objective": -700.0,
+    "solve_time": 56.99144363200048,
+    "nodes_processed": 1,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_2000_3",
+    "status": "timelimit",
+    "objective": -715.0,
+    "solve_time": 56.932838843000354,
+    "nodes_processed": 18,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_2000_4",
+    "status": "timelimit",
+    "objective": -672.0,
+    "solve_time": 56.767052377000255,
+    "nodes_processed": 16,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_2000_5",
+    "status": "timelimit",
+    "objective": -682.0,
+    "solve_time": 56.654172276999816,
+    "nodes_processed": 18,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_2000_6",
+    "status": "timelimit",
+    "objective": -733.0,
+    "solve_time": 56.244472417,
+    "nodes_processed": 5,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_2000_7",
+    "status": "timelimit",
+    "objective": -682.0,
+    "solve_time": 58.10997352599952,
+    "nodes_processed": 1,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_2000_8",
+    "status": "timelimit",
+    "objective": -693.0,
+    "solve_time": 56.19638352600032,
+    "nodes_processed": 1,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_2000_9",
+    "status": "timelimit",
+    "objective": -711.0,
+    "solve_time": 56.418792215000394,
+    "nodes_processed": 1,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_500_2000_10",
+    "status": "timelimit",
+    "objective": -690.0,
+    "solve_time": 56.35746055300024,
+    "nodes_processed": 1,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_1000_1",
+    "status": "timelimit",
+    "objective": -604.0,
+    "solve_time": 56.372766113999205,
+    "nodes_processed": 3,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_1000_2",
+    "status": "timelimit",
+    "objective": -606.0,
+    "solve_time": 58.15794192300018,
+    "nodes_processed": 3,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_1000_3",
+    "status": "timelimit",
+    "objective": -615.0,
+    "solve_time": 56.613373537999905,
+    "nodes_processed": 2,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_1000_4",
+    "status": "timelimit",
+    "objective": -614.0,
+    "solve_time": 56.62510114399993,
+    "nodes_processed": 2,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_1000_5",
+    "status": "timelimit",
+    "objective": -614.0,
+    "solve_time": 56.665007108999816,
+    "nodes_processed": 2,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_1000_6",
+    "status": "timelimit",
+    "objective": -613.0,
+    "solve_time": 56.539935895999406,
+    "nodes_processed": 3,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_1000_7",
+    "status": "timelimit",
+    "objective": -619.0,
+    "solve_time": 58.26353688600011,
+    "nodes_processed": 5,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_1000_8",
+    "status": "timelimit",
+    "objective": -532.0,
+    "solve_time": 56.58332446199984,
+    "nodes_processed": 11,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_1000_9",
+    "status": "timelimit",
+    "objective": -549.0,
+    "solve_time": 56.35547346200019,
+    "nodes_processed": 13,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_1000_10",
+    "status": "timelimit",
+    "objective": -546.0,
+    "solve_time": 56.4700351069996,
+    "nodes_processed": 14,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_2000_1",
+    "status": "timelimit",
+    "objective": -661.0,
+    "solve_time": 56.691868687999886,
+    "nodes_processed": 1,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_2000_2",
+    "status": "timelimit",
+    "objective": -663.0,
+    "solve_time": 58.258275154999865,
+    "nodes_processed": 1,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_2000_3",
+    "status": "timelimit",
+    "objective": -702.0,
+    "solve_time": 56.499177901999246,
+    "nodes_processed": 1,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_2000_4",
+    "status": "timelimit",
+    "objective": -707.0,
+    "solve_time": 56.51813469099943,
+    "nodes_processed": 1,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_2000_5",
+    "status": "timelimit",
+    "objective": -646.0,
+    "solve_time": 56.51588420400003,
+    "nodes_processed": 1,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_2000_6",
+    "status": "timelimit",
+    "objective": -670.0,
+    "solve_time": 56.781058368999766,
+    "nodes_processed": 1,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_2000_7",
+    "status": "timelimit",
+    "objective": -698.0,
+    "solve_time": 58.211340775999815,
+    "nodes_processed": 1,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_2000_8",
+    "status": "timelimit",
+    "objective": -709.0,
+    "solve_time": 56.574348610000015,
+    "nodes_processed": 1,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_2000_9",
+    "status": "timelimit",
+    "objective": -674.0,
+    "solve_time": 56.59304369600068,
+    "nodes_processed": 1,
+    "cuts_added": 200,
+    "metadata": {}
+  },
+  {
+    "instance": "SCP_1000_2000_10",
+    "status": "timelimit",
+    "objective": -663.0,
+    "solve_time": 56.22154548399976,
+    "nodes_processed": 1,
+    "cuts_added": 200,
+    "metadata": {}
+  }
+]

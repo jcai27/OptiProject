@@ -1,0 +1,42 @@
+experiment_name: miplib_traininstance6
+
+dataset:
+  name: miplib_demo
+  root_path: ./data
+  file_extension: .mps
+  train_instances:
+    - traininstance6
+  validation_instances: []
+  test_instances: []
+
+solver:
+  backend: pyscipopt
+  time_limit_seconds: 7200
+  use_learned_policies: false
+  settings:
+    limits/time: 7200
+    limits/nodes: 1000000
+
+models:
+  node_model: logistic_regression
+  cut_model: elastic_net
+  retrain_epochs: 1
+  calibration: isotonic
+
+guardrails:
+  enable_guardrails: true
+  no_progress_node_limit: 250
+  no_progress_time_seconds: 60
+  cut_budget: 50
+  node_weight: 0.15
+
+instrumentation:
+  enable_node_logging: true
+  enable_cut_logging: true
+  strong_branching:
+    enable_labels: true
+    candidate_limit: 8
+    iteration_limit: 50
+    label_top_fraction: 0.25
+
+output_directory: ./outputs

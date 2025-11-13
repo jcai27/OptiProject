@@ -1,0 +1,85 @@
+experiment_name: scp_set_cover_eval_baseline
+
+dataset:
+  name: scp_mps
+  root_path: ./data/SCP_MPS
+  file_extension: .mps
+  train_instances:
+    - SCP_500_1000_3
+  validation_instances: []
+  test_instances:
+    - SCP_500_1000_1
+    - SCP_500_1000_2
+    - SCP_500_1000_4
+    - SCP_500_1000_5
+    - SCP_500_1000_6
+    - SCP_500_1000_7
+    - SCP_500_1000_8
+    - SCP_500_1000_9
+    - SCP_500_1000_10
+    - SCP_500_2000_1
+    - SCP_500_2000_2
+    - SCP_500_2000_3
+    - SCP_500_2000_4
+    - SCP_500_2000_5
+    - SCP_500_2000_6
+    - SCP_500_2000_7
+    - SCP_500_2000_8
+    - SCP_500_2000_9
+    - SCP_500_2000_10
+    - SCP_1000_1000_1
+    - SCP_1000_1000_2
+    - SCP_1000_1000_3
+    - SCP_1000_1000_4
+    - SCP_1000_1000_5
+    - SCP_1000_1000_6
+    - SCP_1000_1000_7
+    - SCP_1000_1000_8
+    - SCP_1000_1000_9
+    - SCP_1000_1000_10
+    - SCP_1000_2000_1
+    - SCP_1000_2000_2
+    - SCP_1000_2000_3
+    - SCP_1000_2000_4
+    - SCP_1000_2000_5
+    - SCP_1000_2000_6
+    - SCP_1000_2000_7
+    - SCP_1000_2000_8
+    - SCP_1000_2000_9
+    - SCP_1000_2000_10
+
+solver:
+  backend: pyscipopt
+  time_limit_seconds: 60
+  use_learned_policies: false
+  settings:
+    limits/time: 60
+    limits/nodes: 5000
+    presolving/maxrounds: 0
+    presolving/maxrestarts: 0
+    separating/maxrounds: 0
+    separating/maxroundsroot: 1
+
+models:
+  node_model: logistic_regression
+  cut_model: elastic_net
+  retrain_epochs: 1
+  calibration: isotonic
+
+guardrails:
+  enable_guardrails: true
+  no_progress_node_limit: 250
+  no_progress_time_seconds: 60
+  cut_budget: 50
+  node_weight: 0.15
+
+instrumentation:
+  enable_node_logging: false
+  enable_cut_logging: false
+  strong_branching:
+    enable_labels: false
+    candidate_limit: 8
+    iteration_limit: 50
+    label_top_fraction: 0.25
+
+output_directory: ./outputs

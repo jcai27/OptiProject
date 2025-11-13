@@ -1,0 +1,12 @@
+instances: 39
+objective_improved: 21
+objective_worse: 14
+objective_equal: 4
+avg_objective_baseline: -625.897
+avg_objective_ml: -634.231
+avg_nodes_baseline: 100.03
+avg_nodes_ml: 96.97
+median_nodes_baseline: 18.00
+median_nodes_ml: 3.00
+avg_solve_time_baseline: 57.44
+avg_solve_time_ml: 56.96

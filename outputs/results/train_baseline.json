@@ -1,0 +1,11 @@
+[
+  {
+    "instance": "traininstance6",
+    "status": "timelimit",
+    "objective": 29190.0,
+    "solve_time": 631.5201343299996,
+    "nodes_processed": 3738,
+    "cuts_added": 11,
+    "metadata": {}
+  }
+]
